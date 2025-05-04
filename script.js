@@ -1,80 +1,64 @@
-let parsedData = [];
+let data = [];
 let headers = [];
 
-document.getElementById('csvFile').addEventListener('change', function(e) {
+document.getElementById('csvFile').addEventListener('change', function (e) {
   const file = e.target.files[0];
   if (!file) return;
 
   Papa.parse(file, {
     header: true,
-    delimiter: ';',
-    dynamicTyping: true,
-    complete: function(results) {
-      parsedData = results.data;
+    delimiter: ";",
+    skipEmptyLines: true,
+    complete: function (results) {
+      data = results.data;
       headers = results.meta.fields;
-      populateSelects();
-      renderTable();
+      populateTable();
+      populateDropdowns();
+      drawDistributionChart();
     }
   });
 });
 
-function populateSelects() {
-  const selects = ['x1','y1','y2','x2','y3','y4'];
+function populateTable() {
+  const container = document.getElementById('tableContainer');
+  let html = '<table><thead><tr>';
+  headers.forEach(h => html += `<th>${h}</th>`);
+  html += '</tr></thead><tbody>';
+
+  data.slice(0, 100).forEach(row => {
+    html += '<tr>';
+    headers.forEach(h => html += `<td>${row[h]}</td>`);
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function populateDropdowns() {
+  const selects = ['x1', 'y1', 'y2', 'x2', 'y3', 'y4'];
   selects.forEach(id => {
-    const select = document.getElementById(id);
-    select.innerHTML = id === 'y2' || id === 'y4' ? '<option value="">None</option>' : '';
-    headers.forEach(h => {
-      const option = document.createElement('option');
-      option.value = h;
-      option.textContent = h;
-      select.appendChild(option);
-    });
-    select.onchange = drawCharts;
+    const sel = document.getElementById(id);
+    sel.innerHTML = headers.map(h => `<option value="${h}">${h}</option>`).join('');
+    if (id === 'y2' || id === 'y4') sel.innerHTML = '<option value="">None</option>' + sel.innerHTML;
+    sel.addEventListener('change', drawCharts);
   });
   drawCharts();
 }
 
-function renderTable() {
-  const container = document.getElementById('tableContainer');
-  const table = document.createElement('table');
-  const thead = table.createTHead();
-  const row = thead.insertRow();
-
-  headers.forEach(h => {
-    const th = document.createElement('th');
-    th.textContent = h;
-    row.appendChild(th);
-  });
-
-  const tbody = table.createTBody();
-  parsedData.slice(0, 50).forEach(rowData => {
-    const tr = tbody.insertRow();
-    headers.forEach(h => {
-      const td = tr.insertCell();
-      td.textContent = rowData[h];
-    });
-  });
-
-  container.innerHTML = "";
-  container.appendChild(table);
-}
-
 function drawCharts() {
-  drawLineChart('chart1', 'x1', 'y1', 'y2');
-  drawLineChart('chart2', 'x2', 'y3', 'y4');
-  drawDistribution();
+  drawChart('chart1', 'x1', 'y1', 'y2');
+  drawChart('chart2', 'x2', 'y3', 'y4');
 }
 
-function drawLineChart(canvasId, xSel, y1Sel, y2Sel) {
-  const xKey = document.getElementById(xSel).value;
-  const y1Key = document.getElementById(y1Sel).value;
-  const y2Key = document.getElementById(y2Sel).value;
+function drawChart(canvasId, xId, y1Id, y2Id) {
+  const xKey = document.getElementById(xId).value;
+  const y1Key = document.getElementById(y1Id).value;
+  const y2Key = document.getElementById(y2Id).value;
 
-  if (!xKey || !y1Key) return;
-
-  const x = parsedData.map(d => d[xKey]);
-  const y1 = parsedData.map(d => d[y1Key]);
-  const y2 = y2Key ? parsedData.map(d => d[y2Key]) : null;
+  const labels = data.map(row => parseFloat(row[xKey]));
+  const y1Data = data.map(row => parseFloat(row[y1Key]));
+  const y2Data = y2Key ? data.map(row => parseFloat(row[y2Key])) : null;
 
   const ctx = document.getElementById(canvasId).getContext('2d');
   if (window[canvasId]) window[canvasId].destroy();
@@ -82,69 +66,63 @@ function drawLineChart(canvasId, xSel, y1Sel, y2Sel) {
   window[canvasId] = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: x,
+      labels,
       datasets: [
         {
           label: y1Key,
-          data: y1,
-          borderColor: 'cyan',
-          yAxisID: 'y',
+          data: y1Data,
+          borderColor: '#00e676',
+          fill: false,
         },
-        y2 ? {
+        y2Data && {
           label: y2Key,
-          data: y2,
-          borderColor: 'orange',
-          yAxisID: 'y1',
-        } : null
+          data: y2Data,
+          borderColor: '#03a9f4',
+          fill: false,
+        }
       ].filter(Boolean)
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       scales: {
-        y: { type: 'linear', position: 'left' },
-        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
+        x: { title: { display: true, text: xKey } },
+        y: { title: { display: true, text: 'Value' } }
       }
     }
   });
 }
 
-function drawDistribution() {
-  const key = "current_in";
-  if (!headers.includes(key)) return;
-
-  const bins = [0, 30, 60, 90, 120];
-  const labels = ["0–30", "30–60", "60–90", "90–120", "120+"];
+function drawDistributionChart() {
   const counts = [0, 0, 0, 0, 0];
-
-  parsedData.forEach(d => {
-    const val = d[key];
-    if (val == null) return;
-    if (val < 30) counts[0]++;
-    else if (val < 60) counts[1]++;
-    else if (val < 90) counts[2]++;
-    else if (val < 120) counts[3]++;
+  data.forEach(row => {
+    const val = parseFloat(row['current_in']);
+    if (val <= 30) counts[0]++;
+    else if (val <= 60) counts[1]++;
+    else if (val <= 90) counts[2]++;
+    else if (val <= 120) counts[3]++;
     else counts[4]++;
   });
 
   const total = counts.reduce((a, b) => a + b, 0);
-  const percentages = counts.map(c => (c / total * 100).toFixed(1));
+  const percentages = counts.map(c => (c / total * 100).toFixed(2));
 
-  const ctx = document.getElementById("distChart").getContext("2d");
-  if (window.distChart) window.distChart.destroy();
-
-  window.distChart = new Chart(ctx, {
-    type: "bar",
+  const ctx = document.getElementById('distChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
     data: {
-      labels,
+      labels: ['0-30', '30-60', '60-90', '90-120', '120+'],
       datasets: [{
-        label: "Percentage",
+        label: '% of Samples',
         data: percentages,
-        backgroundColor: "#00e676",
+        backgroundColor: '#ff9100'
       }]
     },
     options: {
+      responsive: true,
+      maintainAspectRatio: false,
       scales: {
-        y: { beginAtZero: true, title: { display: true, text: "%" } }
+        y: { title: { display: true, text: '%' } }
       }
     }
   });
