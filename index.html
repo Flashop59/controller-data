@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CSV Graph Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 CSV Graph Dashboard</h1>
+    
+    <input type="file" id="csvFile" accept=".csv" />
+    <br/><br/>
+
+    <div id="tableContainer"></div>
+
+    <h2>Graph 1</h2>
+    <div class="controls">
+      X: <select id="x1"></select>
+      Y1: <select id="y1"></select>
+      Y2: <select id="y2"><option value="">None</option></select>
+    </div>
+    <canvas id="chart1"></canvas>
+
+    <h2>Graph 2</h2>
+    <div class="controls">
+      X: <select id="x2"></select>
+      Y1: <select id="y3"></select>
+      Y2: <select id="y4"><option value="">None</option></select>
+    </div>
+    <canvas id="chart2"></canvas>
+
+    <h2>Distribution of <code>current_in</code></h2>
+    <canvas id="distChart"></canvas>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
